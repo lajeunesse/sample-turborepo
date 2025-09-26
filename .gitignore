@@ -28,3 +28,6 @@ yarn-error.log*
 
 # turbo
 .turbo
+
+# non source controlled sub projects
+google-font-to-svg-path
