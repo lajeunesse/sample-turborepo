@@ -6,10 +6,10 @@
 	export let sidebar = false;
 </script>
 
+<Hamburger bind:open={sidebar}></Hamburger>
+
+<Menu></Menu>
+<Logo></Logo>
 <header class="flex items-center justify-between border-b-2 bg-gray-200 p-2 text-gray-600">
-	<nav class="flex">
-		<Hamburger bind:open={sidebar}></Hamburger>
-		<Logo></Logo>
-	</nav>
-	<Menu></Menu>
+	<nav class="flex"></nav>
 </header>

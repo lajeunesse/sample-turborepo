@@ -3,8 +3,9 @@ import { encodeBase32LowerCase } from '@oslojs/encoding';
 import { fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import * as auth from '$lib/server/auth';
-import { db } from '$lib/server/db';
-import * as table from '$lib/server/db/schema';
+import { db } from '$lib/server/db/db';
+import { userTable } from '$lib/server/db/schema';
+// import * as table from '$lib/server/db/schema';
 import type { Actions, PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async (event) => {
@@ -27,14 +28,14 @@ export const actions: Actions = {
 			return fail(400, { message: 'Invalid password' });
 		}
 
-		const results = await db.select().from(table.user).where(eq(table.user.username, username));
+		const results = await db.select().from(userTable).where(eq(userTable.username, username));
 
 		const existingUser = results.at(0);
 		if (!existingUser) {
 			return fail(400, { message: 'Incorrect username or password' });
 		}
 
-		const validPassword = await verify(existingUser.passwordHash, password, {
+		const validPassword = await verify(existingUser.hashed_password, password, {
 			memoryCost: 19456,
 			timeCost: 2,
 			outputLen: 32,
@@ -45,13 +46,13 @@ export const actions: Actions = {
 		}
 
 		const sessionToken = auth.generateSessionToken();
-		const session = await auth.createSession(sessionToken, existingUser.id);
+		const session = await auth.createSession(sessionToken, existingUser.id.toString());
 		auth.setSessionTokenCookie(event, sessionToken, session.expiresAt);
 
 		return redirect(302, '/demo/lucia');
 	},
-	register: async (event) => {
-		const formData = await event.request.formData();
+	register: async ( { request }) => {
+		const formData = await request.formData();
 		const username = formData.get('username');
 		const password = formData.get('password');
 
@@ -62,7 +63,7 @@ export const actions: Actions = {
 			return fail(400, { message: 'Invalid password' });
 		}
 
-		const userId = generateUserId();
+		const id = generateUserId();
 		const passwordHash = await hash(password, {
 			// recommended minimum parameters
 			memoryCost: 19456,
@@ -72,13 +73,18 @@ export const actions: Actions = {
 		});
 
 		try {
-			await db.insert(table.user).values({ id: userId, username, passwordHash });
+			console.log(`await the db.insert...`);
+			await db.insert(userTable).values( { id, username, hashed_password: passwordHash } );
 
 			const sessionToken = auth.generateSessionToken();
-			const session = await auth.createSession(sessionToken, userId);
-			auth.setSessionTokenCookie(event, sessionToken, session.expiresAt);
+			console.log(`sessionToken: ${sessionToken}`);
+			const session = await auth.createSession(sessionToken, id);
+			console.log(`session: ${session}`);
+			// auth.setSessionTokenCookie(request, sessionToken, session.expiresAt);
 		} catch (e) {
-			return fail(500, { message: 'An error has occurred' });
+			const excp = JSON.stringify(e);
+			console.log(e);
+			return fail(500, { message: `An error has occurred: ${excp}`});
 		}
 		return redirect(302, '/demo/lucia');
 	}
